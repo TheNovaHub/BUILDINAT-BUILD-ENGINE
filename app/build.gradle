@@ -2,13 +2,6 @@ plugins {
     id 'com.android.application'
 }
 
-def keystoreProperties = new Properties()
-def keystorePropertiesFile = rootProject.file("keystore.properties")
-
-if (keystorePropertiesFile.exists()) {
-    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
-}
-
 android {
     namespace 'com.buildinat.test'
     compileSdk 35
@@ -23,11 +16,13 @@ android {
 
     signingConfigs {
         release {
-            if (keystorePropertiesFile.exists()) {
-                storeFile rootProject.file(keystoreProperties['storeFile'])
-                storePassword keystoreProperties['storePassword']
-                keyAlias keystoreProperties['keyAlias']
-                keyPassword keystoreProperties['keyPassword']
+            def keystoreFile = System.getenv("BUILDINAT_KEYSTORE_FILE")
+
+            if (keystoreFile != null) {
+                storeFile file(keystoreFile)
+                storePassword System.getenv("BUILDINAT_KEYSTORE_PASSWORD")
+                keyAlias System.getenv("BUILDINAT_KEY_ALIAS")
+                keyPassword System.getenv("BUILDINAT_KEY_PASSWORD")
             }
         }
     }
