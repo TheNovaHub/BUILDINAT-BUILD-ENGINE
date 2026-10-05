@@ -1,14 +1,30 @@
 {
   "version": 1,
+
   "project": {
     "name": "Buildinat Test App",
-    "type": "android"
+    "platform": "android"
   },
+
+  "branding": {
+    "appName": "Buildinat Test",
+    "icon": "buildinat/assets/icon.png",
+    "splash": "buildinat/assets/splash.png",
+    "theme": {
+      "primaryColor": "#000000",
+      "secondaryColor": "#FFFFFF"
+    }
+  },
+
   "build": {
-    "type": "debug",
+    "mode": "debug",
     "framework": "android-gradle",
     "entry": "app",
-    "target": ["apk"],
-    "artifact": ["apk"]
+    "target": [
+      "apk"
+    ],
+    "artifact": [
+      "apk"
+    ]
   }
 }
