@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "project": {
+    "name": "Buildinat Test App",
+    "type": "android"
+  },
+  "build": {
+    "framework": "android-gradle",
+    "entry": "app",
+    "target": ["apk"],
+    "artifact": ["apk"]
+  }
+}
