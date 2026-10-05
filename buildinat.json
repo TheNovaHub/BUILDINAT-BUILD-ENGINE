@@ -24,7 +24,7 @@
   },
 
   "build": {
-    "mode": "debug",
+    "mode": "release",
     "framework": "android-gradle",
     "entry": "app",
     "target": [
@@ -38,6 +38,6 @@
   },
 
   "output": {
-    "fileName": "Buildinat-Test-1.0.0-debug"
+    "fileName": "Buildinat-Test-1.0.0-release"
   }
 }
