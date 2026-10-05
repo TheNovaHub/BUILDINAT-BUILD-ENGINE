@@ -14,46 +14,194 @@ jobs:
       - name: Checkout project
         uses: actions/checkout@v4
 
-      - name: Read Buildinat manifest
+      - name: Read and validate Buildinat manifest
         id: manifest
+        shell: bash
         run: |
           python3 - <<'PY'
           import json
           import os
+          import sys
 
-          with open("buildinat.json", "r", encoding="utf-8") as f:
-              data = json.load(f)
+          try:
+              with open("buildinat.json", "r", encoding="utf-8") as f:
+                  data = json.load(f)
+          except FileNotFoundError:
+              print("ERROR: buildinat.json not found")
+              sys.exit(1)
+          except json.JSONDecodeError as e:
+              print(f"ERROR: Invalid JSON: {e}")
+              sys.exit(1)
 
-          build = data["build"]
+          if data.get("version") != 1:
+              print("ERROR: Unsupported Buildinat manifest version")
+              sys.exit(1)
 
-          print("Project:", data["project"]["name"])
-          print("Type:", data["project"]["type"])
-          print("Framework:", build["framework"])
-          print("Targets:", build["target"])
-          print("Artifacts:", build["artifact"])
+          project = data.get("project", {})
+          build = data.get("build", {})
 
-          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
-              f.write(f"framework={build['framework']}\n")
+          name = project.get("name")
+          project_type = project.get("type")
+          build_type = build.get("type")
+          framework = build.get("framework")
+          entry = build.get("entry")
+          targets = build.get("target", [])
+          artifacts = build.get("artifact", [])
+
+          if not name:
+              print("ERROR: project.name is required")
+              sys.exit(1)
+
+          if not project_type:
+              print("ERROR: project.type is required")
+              sys.exit(1)
+
+          if build_type not in ["debug", "release"]:
+              print(f"ERROR: Invalid build type: {build_type}")
+              print("Allowed values: debug, release")
+              sys.exit(1)
+
+          if not framework:
+              print("ERROR: build.framework is required")
+              sys.exit(1)
+
+          if not entry:
+              print("ERROR: build.entry is required")
+              sys.exit(1)
+
+          if not isinstance(targets, list) or not targets:
+              print("ERROR: build.target must be a non-empty array")
+              sys.exit(1)
+
+          if not isinstance(artifacts, list) or not artifacts:
+              print("ERROR: build.artifact must be a non-empty array")
+              sys.exit(1)
+
+          if framework == "android-gradle":
+              if project_type != "android":
+                  print("ERROR: android-gradle requires project.type = android")
+                  sys.exit(1)
+
+              allowed_targets = {"apk", "aab"}
+
+              for target in targets:
+                  if target not in allowed_targets:
+                      print(f"ERROR: Unsupported Android target: {target}")
+                      sys.exit(1)
+
+          print("================================")
+          print("BUILDINAT BUILD MANIFEST")
+          print("================================")
+          print(f"Project:   {name}")
+          print(f"Type:      {project_type}")
+          print(f"Build:     {build_type}")
+          print(f"Framework: {framework}")
+          print(f"Entry:     {entry}")
+          print(f"Targets:   {targets}")
+          print(f"Artifacts: {artifacts}")
+          print("================================")
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+              f.write(f"project_name={name}\n")
+              f.write(f"project_type={project_type}\n")
+              f.write(f"build_type={build_type}\n")
+              f.write(f"framework={framework}\n")
+              f.write(f"entry={entry}\n")
+
+              # Pass arrays as JSON strings
+              f.write(
+                  "targets="
+                  + json.dumps(targets, separators=(",", ":"))
+                  + "\n"
+              )
+
+              f.write(
+                  "artifacts="
+                  + json.dumps(artifacts, separators=(",", ":"))
+                  + "\n"
+              )
           PY
 
       - name: Set up JDK
+        if: steps.manifest.outputs.framework == 'android-gradle'
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
       - name: Set up Gradle
+        if: steps.manifest.outputs.framework == 'android-gradle'
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
-      - name: Build Android APK
-        if: steps.manifest.outputs.framework == 'android-gradle'
-        run: gradle assembleDebug
+      - name: Build Android Debug APK
+        if: |
+          steps.manifest.outputs.framework == 'android-gradle' &&
+          steps.manifest.outputs.build_type == 'debug' &&
+          contains(steps.manifest.outputs.targets, 'apk')
+        run: |
+          gradle assembleDebug
 
-      - name: Upload APK
-        if: contains(fromJSON('["apk"]'), 'apk')
+      - name: Build Android Debug AAB
+        if: |
+          steps.manifest.outputs.framework == 'android-gradle' &&
+          steps.manifest.outputs.build_type == 'debug' &&
+          contains(steps.manifest.outputs.targets, 'aab')
+        run: |
+          gradle bundleDebug
+
+      - name: Build Android Release APK
+        if: |
+          steps.manifest.outputs.framework == 'android-gradle' &&
+          steps.manifest.outputs.build_type == 'release' &&
+          contains(steps.manifest.outputs.targets, 'apk')
+        run: |
+          gradle assembleRelease
+
+      - name: Build Android Release AAB
+        if: |
+          steps.manifest.outputs.framework == 'android-gradle' &&
+          steps.manifest.outputs.build_type == 'release' &&
+          contains(steps.manifest.outputs.targets, 'aab')
+        run: |
+          gradle bundleRelease
+
+      - name: Prepare APK artifact
+        if: contains(steps.manifest.outputs.artifacts, 'apk')
+        shell: bash
+        run: |
+          mkdir -p buildinat-artifacts
+
+          find app/build/outputs/apk -type f -name "*.apk" \
+            -exec cp {} buildinat-artifacts/ \; 2>/dev/null || true
+
+      - name: Prepare AAB artifact
+        if: contains(steps.manifest.outputs.artifacts, 'aab')
+        shell: bash
+        run: |
+          mkdir -p buildinat-artifacts
+
+          find app/build/outputs/bundle -type f -name "*.aab" \
+            -exec cp {} buildinat-artifacts/ \; 2>/dev/null || true
+
+      - name: List generated artifacts
+        shell: bash
+        run: |
+          echo "================================"
+          echo "BUILDINAT ARTIFACTS"
+          echo "================================"
+
+          if [ -d "buildinat-artifacts" ] && [ "$(ls -A buildinat-artifacts 2>/dev/null)" ]; then
+            ls -lh buildinat-artifacts
+          else
+            echo "No artifacts were generated."
+            exit 1
+          fi
+
+      - name: Upload Buildinat artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: buildinat-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: buildinat-${{ steps.manifest.outputs.project_name }}-${{ steps.manifest.outputs.build_type }}
+          path: buildinat-artifacts/
+          if-no-files-found: error
