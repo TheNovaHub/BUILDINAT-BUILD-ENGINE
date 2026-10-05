@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Buildinat Build Engine
 
 on:
   workflow_dispatch:
@@ -11,8 +11,30 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout project
         uses: actions/checkout@v4
+
+      - name: Read Buildinat manifest
+        id: manifest
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+
+          with open("buildinat.json", "r", encoding="utf-8") as f:
+              data = json.load(f)
+
+          build = data["build"]
+
+          print("Project:", data["project"]["name"])
+          print("Type:", data["project"]["type"])
+          print("Framework:", build["framework"])
+          print("Targets:", build["target"])
+          print("Artifacts:", build["artifact"])
+
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"framework={build['framework']}\n")
+          PY
 
       - name: Set up JDK
         uses: actions/setup-java@v4
@@ -25,11 +47,13 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Build APK
+      - name: Build Android APK
+        if: steps.manifest.outputs.framework == 'android-gradle'
         run: gradle assembleDebug
 
       - name: Upload APK
+        if: contains(fromJSON('["apk"]'), 'apk')
         uses: actions/upload-artifact@v4
         with:
-          name: buildinat-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk 
+          name: buildinat-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
