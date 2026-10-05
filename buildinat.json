@@ -6,6 +6,13 @@
     "platform": "android"
   },
 
+  "app": {
+    "name": "Buildinat Test",
+    "package": "com.buildinat.test",
+    "versionName": "1.0.0",
+    "versionCode": 1
+  },
+
   "branding": {
     "appName": "Buildinat Test",
     "icon": "buildinat/assets/icon.png",
@@ -21,10 +28,16 @@
     "framework": "android-gradle",
     "entry": "app",
     "target": [
-      "apk"
+      "apk",
+      "aab"
     ],
     "artifact": [
-      "apk"
+      "apk",
+      "aab"
     ]
+  },
+
+  "output": {
+    "fileName": "Buildinat-Test-1.0.0-debug"
   }
 }
