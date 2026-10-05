@@ -178,7 +178,63 @@ jobs:
 
 
       # ==========================================
-      # 6. BUILD DEBUG APK
+      # 6. VERIFY SIGNING CREDENTIALS
+      # ==========================================
+
+      - name: Verify Buildinat signing credentials
+        if: steps.manifest.outputs.mode == 'release'
+        shell: bash
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.BUILDINAT_KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.BUILDINAT_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.BUILDINAT_KEY_ALIAS }}
+        run: |
+          echo "========================================"
+          echo "BUILDINAT SIGNING DIAGNOSTIC"
+          echo "========================================"
+
+          if [ -z "$KEYSTORE_PASSWORD" ]; then
+            echo "ERROR: BUILDINAT_KEYSTORE_PASSWORD is empty."
+            exit 1
+          fi
+
+          if [ -z "$KEY_PASSWORD" ]; then
+            echo "ERROR: BUILDINAT_KEY_PASSWORD is empty."
+            exit 1
+          fi
+
+          if [ -z "$KEY_ALIAS" ]; then
+            echo "ERROR: BUILDINAT_KEY_ALIAS is empty."
+            exit 1
+          fi
+
+          if [ ! -f "$BUILDINAT_KEYSTORE_FILE" ]; then
+            echo "ERROR: Restored keystore file does not exist."
+            exit 1
+          fi
+
+          echo "Keystore file: OK"
+          echo "Alias configured: OK"
+
+          echo "Buildinat signing test" > "$RUNNER_TEMP/buildinat-test.txt"
+
+          jar cf "$RUNNER_TEMP/buildinat-test.jar" \
+            -C "$RUNNER_TEMP" buildinat-test.txt
+
+          jarsigner \
+            -keystore "$BUILDINAT_KEYSTORE_FILE" \
+            -storepass "$KEYSTORE_PASSWORD" \
+            -keypass "$KEY_PASSWORD" \
+            "$RUNNER_TEMP/buildinat-test.jar" \
+            "$KEY_ALIAS"
+
+          echo "========================================"
+          echo "SIGNING CREDENTIALS: SUCCESS"
+          echo "========================================"
+
+
+      # ==========================================
+      # 7. BUILD DEBUG APK
       # ==========================================
 
       - name: Build Android Debug APK
@@ -190,7 +246,7 @@ jobs:
 
 
       # ==========================================
-      # 7. BUILD DEBUG AAB
+      # 8. BUILD DEBUG AAB
       # ==========================================
 
       - name: Build Android Debug AAB
@@ -202,7 +258,7 @@ jobs:
 
 
       # ==========================================
-      # 8. BUILD RELEASE APK
+      # 9. BUILD RELEASE APK
       # ==========================================
 
       - name: Build Android Release APK
@@ -218,7 +274,7 @@ jobs:
 
 
       # ==========================================
-      # 9. BUILD RELEASE AAB
+      # 10. BUILD RELEASE AAB
       # ==========================================
 
       - name: Build Android Release AAB
@@ -234,7 +290,7 @@ jobs:
 
 
       # ==========================================
-      # 10. PREPARE APK
+      # 11. PREPARE APK ARTIFACTS
       # ==========================================
 
       - name: Prepare APK artifacts
@@ -251,7 +307,7 @@ jobs:
 
 
       # ==========================================
-      # 11. PREPARE AAB
+      # 12. PREPARE AAB ARTIFACTS
       # ==========================================
 
       - name: Prepare AAB artifacts
@@ -268,7 +324,7 @@ jobs:
 
 
       # ==========================================
-      # 12. VERIFY
+      # 13. VERIFY ARTIFACTS
       # ==========================================
 
       - name: Verify Buildinat artifacts
@@ -292,7 +348,7 @@ jobs:
 
 
       # ==========================================
-      # 13. UPLOAD
+      # 14. UPLOAD ARTIFACTS
       # ==========================================
 
       - name: Upload Buildinat artifacts
