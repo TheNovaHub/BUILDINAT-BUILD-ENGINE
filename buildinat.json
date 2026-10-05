@@ -5,6 +5,7 @@
     "type": "android"
   },
   "build": {
+    "type": "debug",
     "framework": "android-gradle",
     "entry": "app",
     "target": ["apk"],
